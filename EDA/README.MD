@@ -1,6 +1,9 @@
 ## About Dataset
+
 DATA -  IEEE-CIS Fraud Detection from KAGGLE
-Transaction data
+
+
+### Transaction data
 
 Transaction id: Id related to the transaction
 TransactionDT: timedelta from a given reference datetime (not an actual timestamp)
@@ -15,7 +18,8 @@ C1-C14: counting, such as how many addresses are found to be associated with the
 D1-D15: time delta, such as days between the previous transactions, etc.
 M1-M9 [Categorical]: match, such as names on card and address, etc.
 Vxxx: Vesta engineered rich features, including ranking, counting, and other entity relations.
-Identity data
+
+### Identity data
 
 Transaction id: Id related to the transaction
 DeviceType [Categorical]: Type of device used for the transaction
