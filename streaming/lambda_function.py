@@ -3,6 +3,7 @@ import json
 import boto3
 import base64
 import mlflow
+import joblib
 
 kinesis_client=boto3.client('kinesis')
 
@@ -14,6 +15,13 @@ logged_model=f's3://mlflow-fraud-detection-slv/1/{RUN_ID}/artifacts/model'
 model=mlflow.pyfunc.load_model(logged_model)
 
 TEST_RUN=os.getenv('TEST_RUN','False') == 'True'
+
+
+def load_encoders():
+    global encoders 
+    s3=boto3.client('s3')
+    #load label encoders from s3
+    s3.download_file
 
 def preprocess_features(df):
     cat_cols=df.select_dtypes(include=['object', 'category']).columns
@@ -40,14 +48,20 @@ def lambda_handler(event,context):
         record_data = json.loads(decoded_data)
         TransactionID = record_data['TransactionID']
 
-        features = preprocess_features(record_data)
-        prediction=predict(features)
+        #convert dict into dataframe
+        features_df=pd.DataFrame([record_data])
+
+        #replace null with np.nan
+        features_df=features_df.replace({None : np.nan})
+
+        features_df = preprocess_features(features_df)
+        prediction=predict(features_df)
 
         prediction_event ={
             'model':'Fraud-detection-model',
             'version' : '123',
             'prediction': {
-                'isFraud': prediction,
+                'isFraud': int(prediction),
                 'TransactionID': TransactionID
             }
         }
@@ -59,7 +73,7 @@ def lambda_handler(event,context):
                 partition_key = TransactionID
             )
 
-        predicions_events.append(predicions_event)
+        predicions_events.append(predicion_event)
 
     return{
         'predictions':predicions_events
