@@ -21,7 +21,7 @@ def load_encoders():
     global encoders 
     s3=boto3.client('s3')
     #load label encoders from s3
-    s3.download_file
+    s3.download_file()
 
 def preprocess_features(df):
     cat_cols=df.select_dtypes(include=['object', 'category']).columns
