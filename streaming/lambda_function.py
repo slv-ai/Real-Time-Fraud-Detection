@@ -60,7 +60,8 @@ def lambda_handler(event,context):
         decoded_data=base64.b64decode(encoded_data).decode('utf-8')
 
         record_data = json.loads(decoded_data)
-        TransactionID = record_data['TransactionID']
+        TransactionID = record_data.get('TransactionID', 'unknown')
+        #TransactionID = record_data['TransactionID']
         
         #convert dict into dataframe
         features_df=pd.DataFrame([record_data])
@@ -85,14 +86,14 @@ def lambda_handler(event,context):
         if not TEST_RUN:
             kinesis_client.put_record(
                 StreamName=PREDICTIONS_STREAM_NAME,
-                data = json.dumps(prediction_event),
-                partition_key = TransactionID
+                Data = json.dumps(prediction_event),
+                partition_key = str(TransactionID)
             )
 
-        prediction_events.append(predicion_event)
+        prediction_events.append(prediction_event)
 
     return{
-        'predictions':predicions_events
+        'predictions':prediction_events
     }
 
 
