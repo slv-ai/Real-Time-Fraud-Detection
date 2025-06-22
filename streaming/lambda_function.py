@@ -18,8 +18,8 @@ kinesis_client=boto3.client('kinesis')
 s3 = boto3.client('s3')
 
 #environment variables
-PREDICTIONS_STREAM_NAME=os.getenv("PREDICTIONS_STREAM_NAME",'fraud_detections')
-RUN_ID=os.getenv("RUN_ID")
+PREDICTIONS_STREAM_NAME=os.getenv("PREDICTIONS_STREAM_NAME",'fraud-detections')
+RUN_ID=os.getenv("RUN_ID","522ab897b0564d749772ef0db9629070")
 MODEL_BUCKET = os.getenv("MODEL_BUCKET",'mlflow-fraud-detection-slv')
 TEST_RUN=os.getenv('TEST_RUN','False') == 'True'
 
@@ -29,23 +29,30 @@ model=mlflow.pyfunc.load_model(logged_model)
 
 # load label encoders
 def load_label_encoders():
-    obj = s3.get_object(Bucket=MODEL_BUCKET, Key='models/label_encoders.pkl')
-    return joblib.load(BytesIO(obj['Body'].read()))
+    obj = s3.get_object(Bucket=MODEL_BUCKET, Key='encoders/label_encoders.pkl')
+    encoders=joblib.load(BytesIO(obj['Body'].read()))
+    #print("Loaded encoders:", list(encoders.keys()))
+    return encoders
 
 
-def preprocess_features(df,label_encoders):
-    cat_cols=df.select_dtypes(include=['object', 'category']).columns
+def preprocess_features(df, label_encoders, cat_cols):
+    missing_cols = []
+
     for col in cat_cols:
-        df[col]=df[col].fillna('Unknown').astype(str)
-        #use prefitted laebl encoder
-        le=label_encoders.get(col)
+        df[col] = df[col].fillna('Unknown').astype(str)
+        le = label_encoders.get(col)
+
         if le:
-            df[col]=le.transform(df[col])
-        else :
-            logger.warning(f"No label encoder found for column: {col}, defaulting to 0")
-            df[col]=0       
-        
+            df[col] = le.transform(df[col])
+        else:
+            df[col] = -1
+            missing_cols.append(col)
+
+    if missing_cols:
+        logger.warning(f"No label encoder found for columns: {missing_cols}. Filling with -1")
+
     return df
+
 
 def predict(features):
     pred=model.predict(features)
@@ -71,7 +78,15 @@ def lambda_handler(event,context):
         #load encoders
         label_encoders = load_label_encoders()
         #preprocess features & predict
-        features_df = preprocess_features(features_df,label_encoders)
+        cat_cols=['ProductCD', 'card4', 'card6', 'P_emaildomain', 'R_emaildomain', 'M1',
+       'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'id_12', 'id_15',
+       'id_16', 'id_28', 'id_29', 'id_30', 'id_31', 'id_33', 'id_34', 'id_35',
+       'id_36', 'id_37', 'id_38', 'DeviceType', 'DeviceInfo']
+        features_df = preprocess_features(features_df,label_encoders,cat_cols)
+
+        for col in features_df.columns:
+            if features_df[col].dtype == 'object':
+                features_df[col] = pd.to_numeric(features_df[col], errors='coerce')
         prediction=predict(features_df)
 
         prediction_event ={
@@ -87,7 +102,7 @@ def lambda_handler(event,context):
             kinesis_client.put_record(
                 StreamName=PREDICTIONS_STREAM_NAME,
                 Data = json.dumps(prediction_event),
-                partition_key = str(TransactionID)
+                PartitionKey = str(TransactionID)
             )
 
         prediction_events.append(prediction_event)
