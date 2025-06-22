@@ -8,4 +8,6 @@ mlflow server \
 
   pydantic=1.10.8
   mlflow=2.2.2
+  scikit-learn=1.0.2
   
+pipenv install boto3 mlflow==2.2.2 scikit-learn==1.0.2 pydantic==1.10.8 --python=3.9
