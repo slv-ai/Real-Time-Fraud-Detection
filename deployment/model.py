@@ -3,6 +3,19 @@ import json
 import boto3
 import base64
 import mlflow
+import joblib
+from io import BytesIO
+import pandas as pd 
+import numpy as np 
+import logging
+
+#setup logging
+logger=logging.getLogger()
+logger.setLevel(logging.INFO)
+
+#boto3 clients
+kinesis_client=boto3.client('kinesis')
+s3 = boto3.client('s3')
 
 
 
@@ -19,8 +32,15 @@ def get_model_location(run_id):
 
 def load_model(run_id):
     model_path=get_model_location(run_id)
-    model=mlflow.pfunc.load_model(model_path)
+    model=mlflow.pyfunc.load_model(model_path)
     return model
+
+def load_label_encoders():
+    MODEL_BUCKET = os.getenv('S3_BUCKET_NAME','mlflow-fraud-detection-slv')
+    obj = s3.get_object(Bucket=MODEL_BUCKET, Key='encoders/label_encoders.pkl')
+    encoders=joblib.load(BytesIO(obj['Body'].read()))
+    #print("Loaded encoders:", list(encoders.keys()))
+    return encoders
 
 
 def base64_decode(encoded_data):
@@ -29,23 +49,34 @@ def base64_decode(encoded_data):
     return record_data
 
 class ModelService:
-    def __init__(self,model,model_version=None,callbacks=None):
+    def __init__(self,model,encoders,model_version=None,callbacks=None):
         self.model=model
+        self.encoders = encoders
         self.model_version=model_version
         self.callbacks=callbacks or []
 
-    def preprocess_features(self,fraud_Data):
-        cat_cols=fraud_Data.select_dtypes(include=['object', 'category']).columns
+    def preprocess_features(self,df, cat_cols):
+        missing_cols = []
+
         for col in cat_cols:
-            fraud_Data[col]=fraud_Data[col].fillna('Unknown').astype(str)
-            #fit label encoder
-            le=LabelEncoder()
-            fraud_Data[col]=le.fit_transform(fraud_Data[col])
-        return fraud_Data
+            df[col] = df[col].fillna('Unknown').astype(str)
+            le = self.encoders.get(col)
+
+            if le:
+                df[col] = le.transform(df[col])
+            else:
+                df[col] = -1
+                missing_cols.append(col)
+
+        if missing_cols:
+            logger.warning(f"No label encoder found for columns: {missing_cols}. Filling with -1")
+
+        return df
+
 
 
     def predict(self,features):
-        pred=model.predict(features)
+        pred=self.model.predict(features)
         return pred[0]
 
     def lambda_handler(self,event):
@@ -56,16 +87,26 @@ class ModelService:
             encoded_data=record['kinesis']['data']
             record_data = base64_decode(encoded_data)
             print(record_data)
-            TransactionID = record_data['TransactionID']
+            TransactionID = record_data.get('TransactionID', 'unknown')
 
-            features = self.preprocess_features(record_data)
+            #convert dict into dataframe
+            features_df=pd.DataFrame([record_data])
+
+            #replace null with np.nan
+            features_df=features_df.where(pd.notnull(features_df), np.nan)
+            #preprocess features & predict
+            cat_cols=['ProductCD', 'card4', 'card6', 'P_emaildomain', 'R_emaildomain', 'M1',
+            'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'id_12', 'id_15',
+            'id_16', 'id_28', 'id_29', 'id_30', 'id_31', 'id_33', 'id_34', 'id_35',
+            'id_36', 'id_37', 'id_38', 'DeviceType', 'DeviceInfo']
+            features = self.preprocess_features(features_df,cat_cols)
             prediction=self.predict(features)
 
             prediction_event ={
                 'model':'Fraud-detection-model',
                 'version' : self.model_version,
                 'prediction': {
-                    'isFraud': prediction,
+                    'isFraud': int(prediction),
                     'TransactionID': TransactionID
                     }
             }
