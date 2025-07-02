@@ -24,8 +24,9 @@ aws kinesis put-record \
 export PREDICTIONS_STREAM_NAME="fraud-detections"
 export RUN_ID="522ab897b0564d749772ef0db9629070"
 export TEST_RUN="True"
-``````
+````
 # to test output stream
+````
 KINESIS_STREAM_OUTPUT='fraud-detections'
 SHARD='shardId-000000000000'
 
@@ -41,9 +42,9 @@ RESULT=$(aws kinesis get-records --shard-iterator $SHARD_ITERATOR)
 echo $RESULT
 echo ${RESULT} | jq -r '.Records[0].Data' | base64 --decode
 
-
+````
 # to get records to test locally
-```
+````
 aws kinesis describe-stream --stream-name input-transactions --query "StreamDescription.Shards[*].ShardId" --output text
 ````
 ````
@@ -54,14 +55,15 @@ SHARD_ITERATOR=$(aws kinesis get-shard-iterator \
   --query 'ShardIterator' \
   --output text)
 ````
+````
 aws kinesis get-records --shard-iterator "$SHARD_ITERATOR" --limit 1 > input_records.json
 ````
 ````
 cat input_records.json
 
-`````
-
 ````
+
+`````
 docker build -t fraud-detection-model-duration:v1 .
 
 `````
@@ -76,14 +78,16 @@ docker run -it --rm \
 -e AWS_DEFAULT_REGION="us-east-1" \
 fraud-detection-model-duration:v1
 
-
+`````
+```
 docker run -it --rm \
 -p 8080:8080 \
 -e PREDICTIONS_STREAM_NAME="fraud-detections" \
 -e RUN_ID="522ab897b0564d749772ef0db9629070" \
 -e TEST_RUN="True" \
 fraud-detection-model-duration:v1
-
-
+```
+```
 python3 -m venv ~/.venvs/myenv
 source ~/.venvs/myenv/bin/activate
+```
