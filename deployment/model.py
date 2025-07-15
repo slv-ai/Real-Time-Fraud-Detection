@@ -21,12 +21,12 @@ s3 = boto3.client('s3')
 
 def get_model_location(run_id):
     model_location=os.getenv('MODEL_LOCATION')
-    if not None:
+    if model_location is  not None:
         return model_location
     model_bucket = os.getenv('S3_BUCKET_NAME','mlflow-fraud-detection-slv')
     experiment_id = os.getenv('MLFLOW_EXPERIMENT_ID','1')
 
-    model_location=f's3://{model_bucket}/{experiment_id}/{RUN_ID}/artifacts/model'
+    model_location=f's3://{model_bucket}/{experiment_id}/{run_id}/artifacts/model'
 
     return model_location
 
@@ -81,7 +81,7 @@ class ModelService:
 
     def lambda_handler(self,event):
 
-        predicions_events =[]
+        predictions_events =[]
 
         for record in event['Records']:
             encoded_data=record['kinesis']['data']
@@ -111,22 +111,22 @@ class ModelService:
                     }
             }
             for callback in self.callbacks:
-                callback(predicion_event)
-            predicions_events.append(predicion_event)
+                callback(prediction_event)
+            predictions_events.append(prediction_event)
 
-        return {'predictions': predicions_events}
+        return {'predictions': predictions_events}
 
 class KinesisCallback:
 
     def __init__(self,kinesis_client,prediction_stream_name):
-        self.kinesis_client=kinesis_client,
+        self.kinesis_client=kinesis_client
         self.prediction_stream_name=prediction_stream_name
 
     def put_record(self,predicion_event):
         TransactionID=predicion_event['prediction']['TransactionID']
 
         self.kinesis_client.put_record(
-            Stream_name=prediction_stream_name,
+            Stream_name=self.prediction_stream_name,
             data = json.dumps(prediction_event),
             partition_key = TransactionID
         )
