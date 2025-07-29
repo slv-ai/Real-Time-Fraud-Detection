@@ -21,3 +21,39 @@ def test_base64_decode():
     actual_result=model.base64_decode(base64_input)
     expected_result = read_json('test_data.json')
     assert actual_result == expected_result
+
+class ModelMock:
+    def __init__(self,value):
+        self.value=value
+    def predict(Self,x):
+        n= len(x)
+        return [self.value]* n
+
+def test_lambda_handler():
+    model_mock = ModelMock(10)
+    model_version = 'test123'
+    model_service = model.ModelService(model_mock,model_version)
+    base64_input = read_text('data.b64')
+    event = {
+        "Records" : [
+            {
+                "kinesis": {
+                    "data":base64_input,
+                },
+            }
+        ]
+    }
+    actual_predctions = model_service.lambda_handler(event)
+    expected_predictions ={
+        'predictions' : [
+            {
+                'model':'fraud-detection-model',
+                'version': model_version,
+                'prediction' :{
+                    'isFraud' : 0,
+                    'TransactionID' : 2987000
+                },
+            }
+        ]
+    }
+    assert actual_predctions == expected_predictions
