@@ -3,7 +3,7 @@ terraform {
   backend "s3" {
     bucket  = "tf-state-fraud-detection"
     key     = "mlops-project-stg.tfstate"
-    region  = "eu-east-1"
+    region  = "us-east-1"
     encrypt = true
   }
 }
