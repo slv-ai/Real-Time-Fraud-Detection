@@ -1,0 +1,7 @@
+source_stream_name = "prod_input_transactions"
+output_stream_name = "prod_fraud_predictions"
+model_bucket = "prod_input_transactions-mlflow-models"
+lambda_function_local_path = "../deployment/lambda_function.py"
+docker_image_local_path = "../deployment/Dockerfile"
+ecr_repo_name = "prod_fraud_prediction_model"
+lambda_function_name = "prod_fraud_transaction_prediction_lambda"

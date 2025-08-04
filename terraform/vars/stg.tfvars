@@ -1,0 +1,7 @@
+source_stream_name = "stg_input_transactions"
+output_stream_name = "stg_fraud_predictions"
+model_bucket = "stg-mlflow-models"
+lambda_function_local_path = "../lambda_function.py"
+docker_image_local_path = "../Dockerfile"
+ecr_repo_name = "stg_fraud_prediction_model"
+lambda_function_name = "stg_fraud_transaction_prediction_lambda"
