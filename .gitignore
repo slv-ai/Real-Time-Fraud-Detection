@@ -4,3 +4,8 @@ data/
 *.zip
 *.parquet
 
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.backup
+
